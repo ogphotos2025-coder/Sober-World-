@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Colorful Sanctuary - Interactive Journal</title>
+
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Sanctuary" />
+  <link rel="apple-touch-icon" href="https://fav.farm/🌳" />
+  <link rel="icon" href="https://fav.farm/🌳" />
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050811;
+      color: #f0f6fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      user-select: none;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      cursor: grab;
+    }
+    canvas:active {
+      cursor: grabbing;
+    }
+
+    /* Live Clock Display (Top Left) */
+    .realtime-clock-widget {
+      position: absolute;
+      top: 1.5rem;
+      left: 1.5rem;
+      z-index: 10;
+      background: rgba(13, 17, 23, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 0.8rem 1.25rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      text-align: left;
+      pointer-events: none;
+    }
+    .clock-time {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #f0f6fc;
+      letter-spacing: 0.05em;
+      font-variant-numeric: tabular-nums;
+    }
+    .clock-date {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #78ffd6;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.15rem;
+    }
+
+    /* Floating Viewport Controls (Top Right) */
+    .viewport-controls {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .control-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(13, 17, 23, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f0f6fc;
+      font-size: 1.2rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      transition: background 0.15s, transform 0.1s, border-color 0.2s;
+    }
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: scale(1.05);
+    }
+    .control-btn.active {
+      background: rgba(120, 255, 214, 0.2);
+      border-color: #78ffd6;
+      color: #78ffd6;
+    }
+
+    /* Side Drawer for Tree Details & Notes */
+    .tree-drawer {
+      position: absolute;
+      top: 7rem;
+      left: 1.5rem;
+      z-index: 12;
+      width: 320px;
+      background: rgba(13, 17, 23, 0.92);
+      border-radius: 20px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      transform: translateX(-360px);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: text;
+    }
+    .tree-drawer.open {
+      transform: translateX(0);
+    }
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .drawer-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #78ffd6;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: #8b949e;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+    .close-btn:hover { color: #fff; }
+    
+    .tree-meta {
+      font-size: 0.8rem;
+      color: #a3b3c9;
+      line-height: 1.4;
+    }
+    .input-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .input-field label {
+      font-size: 0.7rem;
+      color: #8b949e;
+      text-transform: uppercase;
+    }
+    .input-field input, .input-field textarea {
+      background: rgba(22, 27, 34, 0.9);
+      color: #f0f6fc;
+      border: 1px solid #30363d;
+      padding: 0.6rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      outline: none;
+      font-family: inherit;
+      color-scheme: dark;
+    }
+    .input-field textarea {
+      resize: none;
+      height: 90px;
+    }
+    .input-field input:focus, .input-field textarea:focus {
+      border-color: #78ffd6;
+    }
+    .save-tree-btn {
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      color: #05130b;
+      border: none;
+      padding: 0.65rem;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.2s;
+    }
+    .save-tree-btn:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    /* Main UI Card */
+    .ui-layer {
+      position: relative;
+      z-index: 10;
+      margin-bottom: 2rem;
+      text-align: center;
+      background: rgba(13, 17, 23, 0.8);
+      padding: 1.25rem 1.75rem;
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      max-width: 400px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    h1 { font-size: 0.95rem; font-weight: 500; color: #a3b3c9; text-transform: uppercase; letter-spacing: 0.1em; }
+    .streak-time { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, #a8ff78, #78ffd6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    .date-picker-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      text-align: left;
+    }
+    label { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; }
+    input[type="date"] {
+      background: rgba(22, 27, 34, 0.8);
+      color: #f0f6fc;
+      border: 1px solid #30363d;
+      padding: 0.55rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      outline: none;
+      width: 100%;
+      color-scheme: dark;
+    }
+
+    .btn-group { display: flex; gap: 0.5rem; }
+    button.action-btn {
+      flex: 1;
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      color: #05130b;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button.action-btn:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+    button.reset-btn {
+      background: rgba(255, 255, 255, 0.08);
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+    }
+    button.export-btn {
+      background: rgba(120, 255, 214, 0.12);
+      border: 1px solid rgba(120, 255, 214, 0.3);
+      color: #78ffd6;
+      width: 100%;
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button.export-btn:hover {
+      background: rgba(120, 255, 214, 0.22);
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="islandCanvas"></canvas>
+
+  <!-- Real-Time Always-On Clock Overlay (Top Left) -->
+  <div class="realtime-clock-widget">
+    <div class="clock-time" id="realtimeClockDisplay">00:00:00 AM</div>
+    <div class="clock-date" id="realtimeDateDisplay">Loading Date...</div>
+  </div>
+
+  <!-- Side Drawer for Selected Tree -->
+  <div class="tree-drawer" id="treeDrawer">
+    <div class="drawer-header">
+      <span class="drawer-title" id="drawerWeekLabel">Week 0 Milestone</span>
+      <button class="close-btn" id="closeDrawerBtn">✕</button>
+    </div>
+    <div class="tree-meta" id="drawerMeta">Unlocked on: --</div>
+    
+    <div class="input-field">
+      <label for="treeNameInput">Tree Name</label>
+      <input type="text" id="treeNameInput" placeholder="e.g., Anchor Tree, Day 7 Bloom" />
+    </div>
+
+    <div class="input-field">
+      <label for="treeNoteInput">Personal Reflection Note</label>
+      <textarea id="treeNoteInput" placeholder="Write how you felt or what you accomplished this week..."></textarea>
+    </div>
+
+    <button class="save-tree-btn" id="saveTreeDetailsBtn">Save Entry</button>
+  </div>
+
+  <!-- Viewport Controls (Top Right) -->
+  <div class="viewport-controls">
+    <div class="control-btn active" id="toggleLabelsBtn" title="Toggle Tree Canopy Labels">🏷️</div>
+    <div class="control-btn" id="zoomInBtn" title="Zoom In">+</div>
+    <div class="control-btn" id="zoomOutBtn" title="Zoom Out">−</div>
+    <div class="control-btn" id="recenterBtn" title="Recenter View">🎯</div>
+  </div>
+
+  <!-- Bottom Panel -->
+  <div class="ui-layer">
+    <h1>Living Sanctuary</h1>
+    <div class="streak-time" id="streakText">0d 0h 0m 0s</div>
+
+    <div class="date-picker-container">
+      <label for="startDateInput">Set Sobriety Date</label>
+      <input type="date" id="startDateInput" />
+    </div>
+
+    <div class="btn-group">
+      <button id="saveDateBtn" class="action-btn">Update Date</button>
+      <button id="resetNowBtn" class="action-btn reset-btn">Reset</button>
+    </div>
+
+    <button id="exportJournalBtn" class="export-btn">📥 Export Journal (.txt)</button>
+  </div>
+
+  <script>
+    // --- REAL-TIME ALWAYS-ON CLOCK ---
+    function updateRealtimeClock() {
+      const now = new Date();
+      
+      const timeStr = now.toLocaleTimeString(undefined, { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
+      
+      const dateStr = now.toLocaleDateString(undefined, { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+
+      document.getElementById('realtimeClockDisplay').innerText = timeStr;
+      document.getElementById('realtimeDateDisplay').innerText = dateStr;
+    }
+    setInterval(updateRealtimeClock, 1000);
+    updateRealtimeClock();
+
+    // Prevent Tablet Screen Sleep (Screen Wake Lock API)
+    async function requestScreenWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          await navigator.wakeLock.request('screen');
+        } catch (err) {
+          console.log('Wake Lock Error:', err);
+        }
+      }
+    }
+    requestScreenWakeLock();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') requestScreenWakeLock();
+    });
+
+    // --- TIME & STORAGE MATH ---
+    function toDateInputString(date) {
+      const ten = (i) => (i < 10 ? '0' : '') + i;
+      return `${date.getFullYear()}-${ten(date.getMonth() + 1)}-${ten(date.getDate())}`;
+    }
+
+    function getStartDate() {
+      let stored = localStorage.getItem('soberStartDate');
+      if (!stored) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        stored = today.toISOString();
+        localStorage.setItem('soberStartDate', stored);
+      }
+      return new Date(stored);
+    }
+
+    let startDate = getStartDate();
+    const dateInput = document.getElementById('startDateInput');
+    dateInput.value = toDateInputString(startDate);
+
+    // Label visibility state
+    let showTreeLabels = true;
+
+    // Tree Data Storage Helper
+    function getTreeStorage() {
+      const stored = localStorage.getItem('soberTreeData');
+      return stored ? JSON.parse(stored) : {};
+    }
+
+    function saveTreeStorage(data) {
+      localStorage.setItem('soberTreeData', JSON.stringify(data));
+    }
+
+    document.getElementById('saveDateBtn').addEventListener('click', () => {
+      if (dateInput.value) {
+        const selectedDate = new Date(`${dateInput.value}T00:00:00`);
+        if (!isNaN(selectedDate.getTime())) {
+          startDate = selectedDate;
+          localStorage.setItem('soberStartDate', startDate.toISOString());
+        }
+      }
+    });
+
+    document.getElementById('resetNowBtn').addEventListener('click', () => {
+      if (confirm("Reset your sobriety anchor to midnight today?")) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        startDate = today;
+        localStorage.setItem('soberStartDate', startDate.toISOString());
+        dateInput.value = toDateInputString(startDate);
+      }
+    });
+
+    // Toggle Labels Button Handler
+    const toggleLabelsBtn = document.getElementById('toggleLabelsBtn');
+    toggleLabelsBtn.addEventListener('click', () => {
+      showTreeLabels = !showTreeLabels;
+      if (showTreeLabels) {
+        toggleLabelsBtn.classList.add('active');
+      } else {
+        toggleLabelsBtn.classList.remove('active');
+      }
+    });
+
+    // EXPORT JOURNAL SUMMARY FEATURE
+    document.getElementById('exportJournalBtn').addEventListener('click', () => {
+      exportJournalNotes();
+    });
+
+    function exportJournalNotes() {
+      const now = new Date();
+      const elapsedMs = Math.max(0, now - startDate);
+      const days = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((elapsedMs / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((elapsedMs / (1000 * 60)) % 60);
+
+      const treeData = getTreeStorage();
+      const totalTrees = 1 + Math.floor(days / 7);
+
+      let textContent = `===========================================\n`;
+      textContent += `       LIVING SANCTUARY - JOURNAL SUMMARY  \n`;
+      textContent += `===========================================\n\n`;
+      textContent += `Sobriety Start Date: ${startDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}\n`;
+      textContent += `Current Streak: ${days} Days, ${hours} Hours, ${minutes} Minutes\n`;
+      textContent += `Total Trees Grown: ${totalTrees}\n`;
+      textContent += `Export Date: ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}\n\n`;
+      textContent += `-------------------------------------------\n`;
+      textContent += `            MILESTONE LOG & NOTES          \n`;
+      textContent += `-------------------------------------------\n\n`;
+
+      for (let t = 0; t < totalTrees; t++) {
+        const unlockedDate = new Date(startDate.getTime() + t * 7 * 24 * 60 * 60 * 1000);
+        const entry = treeData[t] || {};
+        const title = (entry.name && entry.name.trim()) ? entry.name.trim() : (t === 0 ? "Anchor Tree" : `Week ${t} Tree`);
+        const note = (entry.note && entry.note.trim()) ? entry.note.trim() : "(No reflection note recorded)";
+
+        textContent += `[Tree #${t}] ${title}\n`;
+        textContent += `Milestone: ${t === 0 ? 'Day 1 Anchor' : 'Week ' + t + ' Growth'}\n`;
+        textContent += `Unlocked On: ${unlockedDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}\n`;
+        textContent += `Reflection Note:\n${note}\n`;
+        textContent += `\n-------------------------------------------\n\n`;
+      }
+
+      // Download text blob file
+      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `Living_Sanctuary_Journal_${now.toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // --- CANVAS & CAMERA ENGINE ---
+    const canvas = document.getElementById('islandCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Camera & Selection State
+    let cameraX = 0;
+    let cameraY = 0;
+    let cameraZoom = 1;
+
+    let isDragging = false;
+    let hasDragged = false;
+    let startX = 0;
+    let startY = 0;
+
+    let renderedTrees = [];
+    let selectedTreeIndex = null;
+
+    // PREVENT DRAWER CLICKS FROM DISPATCHING TO CANVAS
+    const treeDrawer = document.getElementById('treeDrawer');
+    ['mousedown', 'mouseup', 'click', 'dblclick'].forEach(eventType => {
+      treeDrawer.addEventListener(eventType, (e) => e.stopPropagation());
+    });
+
+    // Pan Listeners
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      hasDragged = false;
+      startX = e.clientX - cameraX;
+      startY = e.clientY - cameraY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      hasDragged = true;
+      cameraX = e.clientX - startX;
+      cameraY = e.clientY - startY;
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+
+      if (!hasDragged) {
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        checkTreeClick(clickX, clickY);
+      }
+    });
+
+    // Tree Selection Math
+    function checkTreeClick(cx, cy) {
+      let clickedTree = null;
+      renderedTrees.forEach(tree => {
+        const dx = cx - tree.screenX;
+        const dy = cy - tree.screenY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < tree.hitRadius) {
+          clickedTree = tree;
+        }
+      });
+
+      if (clickedTree) {
+        openTreeDrawer(clickedTree.id, clickedTree.weekNumber, clickedTree.unlockedDate);
+      } else {
+        closeTreeDrawer();
+      }
+    }
+
+    // UI Drawer Operations
+    const treeNameInput = document.getElementById('treeNameInput');
+    const treeNoteInput = document.getElementById('treeNoteInput');
+
+    function openTreeDrawer(treeId, weekNum, unlockedDate) {
+      selectedTreeIndex = treeId;
+      const treeData = getTreeStorage();
+      const currentEntry = treeData[treeId] || { name: '', note: '' };
+
+      document.getElementById('drawerWeekLabel').innerText = weekNum === 0 ? "Anchor Tree" : `Week ${weekNum} Tree`;
+      document.getElementById('drawerMeta').innerText = `Planted on: ${unlockedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      
+      treeNameInput.value = currentEntry.name;
+      treeNoteInput.value = currentEntry.note;
+      treeDrawer.classList.add('open');
+    }
+
+    function closeTreeDrawer() {
+      selectedTreeIndex = null;
+      treeDrawer.classList.remove('open');
+    }
+
+    document.getElementById('closeDrawerBtn').addEventListener('click', closeTreeDrawer);
+
+    document.getElementById('saveTreeDetailsBtn').addEventListener('click', () => {
+      if (selectedTreeIndex !== null) {
+        const treeData = getTreeStorage();
+        treeData[selectedTreeIndex] = {
+          name: treeNameInput.value.trim(),
+          note: treeNoteInput.value.trim()
+        };
+        saveTreeStorage(treeData);
+        alert('Tree entry saved!');
+      }
+    });
+
+    // Zoom & Viewport Listeners
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      cameraZoom = Math.min(Math.max(0.4, cameraZoom * zoomFactor), 3.0);
+    }, { passive: false });
+
+    document.getElementById('zoomInBtn').addEventListener('click', () => cameraZoom = Math.min(3.0, cameraZoom * 1.2));
+    document.getElementById('zoomOutBtn').addEventListener('click', () => cameraZoom = Math.max(0.4, cameraZoom / 1.2));
+    document.getElementById('recenterBtn').addEventListener('click', () => { cameraX = 0; cameraY = 0; cameraZoom = 1; });
+
+    const treePalettes = [
+      { top: '#ff9a9e', mid: '#fecfef', bot: '#ff68a8' },
+      { top: '#a1c4fd', mid: '#c2e9fb', bot: '#4facfe' },
+      { top: '#f6d365', mid: '#fda085', bot: '#f093fb' },
+      { top: '#84fab0', mid: '#8fd3f4', bot: '#20bf55' },
+      { top: '#d4fc79', mid: '#96e6a1', bot: '#38ef7d' }
+    ];
+
+    // Helper: Draw Volumetric Tree
+    function drawDetailedTree(x, y, scale, seed, isSelected) {
+      const palette = treePalettes[seed % treePalettes.length];
+
+      if (isSelected) {
+        ctx.beginPath();
+        ctx.ellipse(x, y - 10, 35 * scale, 15 * scale, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(120, 255, 214, 0.45)';
+        ctx.shadowColor = '#78ffd6';
+        ctx.shadowBlur = 22;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      
+      // Trunk
+      ctx.fillStyle = '#2c1810';
+      ctx.beginPath();
+      ctx.moveTo(x - 8 * scale, y);
+      ctx.lineTo(x + 8 * scale, y);
+      ctx.lineTo(x + 4 * scale, y - 60 * scale);
+      ctx.lineTo(x - 4 * scale, y - 60 * scale);
+      ctx.closePath();
+      ctx.fill();
+
+      // Canopy Layers
+      const canopyLayers = [
+        { offsetX: -18, offsetY: -75, radius: 28, color: palette.bot },
+        { offsetX: 18, offsetY: -75, radius: 28, color: palette.bot },
+        { offsetX: -12, offsetY: -95, radius: 24, color: palette.mid },
+        { offsetX: 12, offsetY: -95, radius: 24, color: palette.mid },
+        { offsetX: 0, offsetY: -115, radius: 30, color: palette.top },
+      ];
+
+      canopyLayers.forEach(layer => {
+        ctx.beginPath();
+        ctx.arc(x + layer.offsetX * scale, y + layer.offsetY * scale, layer.radius * scale, 0, Math.PI * 2);
+        ctx.fillStyle = layer.color;
+        ctx.shadowColor = layer.color;
+        ctx.shadowBlur = 10 * scale;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+    }
+
+    // Helper: Render Floating Badge above Canopy
+    function drawTreeBadge(worldX, worldY, treeScale, treeId, weekNum) {
+      const treeData = getTreeStorage();
+      const entry = treeData[treeId];
+      const displayName = (entry && entry.name && entry.name.trim() !== '') 
+        ? entry.name 
+        : (weekNum === 0 ? "Anchor Tree" : `Week ${weekNum}`);
+
+      ctx.save();
+      
+      // Label Canopy Offset Height
+      const labelY = worldY - (155 * treeScale);
+      ctx.translate(worldX, labelY);
+
+      ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      const textMetrics = ctx.measureText(displayName);
+      const paddingX = 10;
+      const badgeWidth = textMetrics.width + (paddingX * 2);
+      const badgeHeight = 22;
+
+      // Dark Glass Pill Background
+      ctx.beginPath();
+      ctx.roundRect(-badgeWidth / 2, -badgeHeight / 2, badgeWidth, badgeHeight, 11);
+      ctx.fillStyle = 'rgba(13, 17, 23, 0.85)';
+      ctx.strokeStyle = 'rgba(120, 255, 214, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.fill();
+      ctx.stroke();
+
+      // Text Label
+      ctx.fillStyle = '#f0f6fc';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(displayName, 0, 1);
+
+      ctx.restore();
+    }
+
+    // --- MAIN RENDER LOOP ---
+    function render() {
+      const now = new Date();
+      const elapsedMs = Math.max(0, now - startDate);
+      
+      const seconds = Math.floor((elapsedMs / 1000) % 60);
+      const minutes = Math.floor((elapsedMs / (1000 * 60)) % 60);
+      const hours = Math.floor((elapsedMs / (1000 * 60 * 60)) % 24);
+      const days = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+
+      document.getElementById('streakText').innerText = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+
+      const fractionalDays = elapsedMs / (1000 * 60 * 60 * 24);
+
+      // Sky Background
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      const skyHueShift = Math.min(60, fractionalDays * 2);
+      skyGradient.addColorStop(0, `hsl(${220 + skyHueShift}, 60%, 8%)`);
+      skyGradient.addColorStop(0.6, `hsl(${260 + skyHueShift}, 50%, 15%)`);
+      skyGradient.addColorStop(1, `hsl(${320 + skyHueShift}, 70%, 25%)`);
+      ctx.fillStyle = skyGradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Camera Matrix
+      ctx.save();
+      const viewCenterX = canvas.width / 2 + cameraX;
+      const viewCenterY = canvas.height / 2 + 50 + cameraY;
+      ctx.translate(viewCenterX, viewCenterY);
+      ctx.scale(cameraZoom, cameraZoom);
+
+      // Island Crust & Surface
+      const baseRadius = 120;
+      const growthFactor = 14; 
+      const currentRadius = baseRadius + (fractionalDays * growthFactor);
+
+      const earthGradient = ctx.createLinearGradient(0, 0, 0, currentRadius * 0.5);
+      earthGradient.addColorStop(0, '#3d2314');
+      earthGradient.addColorStop(1, '#1a0d06');
+      
+      ctx.beginPath();
+      ctx.ellipse(0, 15, currentRadius, currentRadius * 0.42, 0, 0, Math.PI * 2);
+      ctx.fillStyle = earthGradient;
+      ctx.fill();
+
+      const grassGradient = ctx.createLinearGradient(-currentRadius, 0, currentRadius, 0);
+      grassGradient.addColorStop(0, '#11998e');
+      grassGradient.addColorStop(0.5, '#38ef7d');
+      grassGradient.addColorStop(1, '#0575e6');
+
+      ctx.beginPath();
+      ctx.ellipse(0, -10, currentRadius, currentRadius * 0.35, 0, 0, Math.PI * 2);
+      ctx.fillStyle = grassGradient;
+      ctx.shadowColor = '#38ef7d';
+      ctx.shadowBlur = 18;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      renderedTrees = [];
+      const totalTrees = 1 + Math.floor(fractionalDays / 7);
+
+      for (let t = 0; t < totalTrees; t++) {
+        let worldX = 0;
+        let worldY = 0;
+        let treeScale = 0.8;
+
+        if (t === 0) {
+          worldX = 0;
+          worldY = -12;
+          treeScale = Math.min(1.8, 0.75 + fractionalDays * 0.05);
+        } else {
+          const angle = (t * 2.4);
+          const dist = Math.min(currentRadius - 40, 50 + t * 30);
+          worldX = Math.cos(angle) * dist;
+          worldY = -10 + Math.sin(angle) * (dist * 0.3);
+        }
+
+        const isSelected = selectedTreeIndex === t;
+        drawDetailedTree(worldX, worldY, treeScale, t, isSelected);
+
+        if (showTreeLabels) {
+          drawTreeBadge(worldX, worldY, treeScale, t, t);
+        }
+
+        const screenX = viewCenterX + worldX * cameraZoom;
+        const screenY = viewCenterY + (worldY - 50 * treeScale) * cameraZoom;
+        const unlockedDate = new Date(startDate.getTime() + t * 7 * 24 * 60 * 60 * 1000);
+
+        renderedTrees.push({
+          id: t,
+          weekNumber: t,
+          unlockedDate: unlockedDate,
+          screenX: screenX,
+          screenY: screenY,
+          hitRadius: 40 * treeScale * cameraZoom
+        });
+      }
+
+      ctx.restore();
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
